@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>GymLog</title>
+<style>
+:root{
+  --bg:#0B1120;--surf:#141E2E;--surf2:#1C2A3E;--bdr:#253347;
+  --acc:#C6F135;--acc-dim:rgba(198,241,53,0.1);--acc-dark:#8AAA20;
+  --txt:#EDF0F4;--mut:#5A7090;
+  --done-bg:#0D2118;--done-bdr:#1A4A30;--done:#4ADE80;
+  --warn:#FBBF24;--danger:#FF6B6B;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:-apple-system,'Helvetica Neue',sans-serif}
+.screen{display:none;flex-direction:column;height:100vh;max-height:100vh}
+.screen.on{display:flex}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.scroll::-webkit-scrollbar{display:none}
+
+/* Header */
+.hdr{padding:env(safe-area-inset-top,14px) 16px 12px;padding-top:max(env(safe-area-inset-top),14px);background:var(--bg);border-bottom:1px solid var(--bdr);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.hdr h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
+.back{font-size:14px;color:var(--acc);font-weight:700;cursor:pointer;padding:6px 0}
+
+/* Cards */
+.card{background:var(--surf);border:1px solid var(--bdr);border-radius:16px;padding:14px}
+.card.accent{border-color:var(--acc);background:var(--acc-dim)}
+.card.success{background:var(--done-bg);border-color:var(--done-bdr)}
+
+/* Day grid */
+.day-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px}
+.day-card{position:relative;cursor:pointer;overflow:hidden}
+.day-card.today{border-color:var(--acc)}
+.day-card.today::after{content:'';position:absolute;inset:0;background:var(--acc-dim);pointer-events:none}
+.day-card .dlabel{font-size:10px;font-weight:800;letter-spacing:2px;color:var(--acc);text-transform:uppercase}
+.day-card .dname{font-size:15px;font-weight:800;margin:3px 0 4px}
+.day-card .dmeta{font-size:10px;color:var(--mut)}
+.done-dot{position:absolute;top:12px;right:12px;width:8px;height:8px;border-radius:50%;background:var(--done)}
+.rest-tag{opacity:.3;pointer-events:none}
+
+/* Streak */
+.streak-wrap{padding:0 14px 4px}
+.streak-bar{display:flex;gap:5px}
+.streak-seg{flex:1;height:5px;border-radius:3px;background:var(--bdr)}
+.streak-seg.done{background:var(--acc)}
+.streak-seg.partial{background:var(--acc);opacity:.4}
+
+/* Exercise grid */
+.ex-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px}
+.ex-card{cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 10px;text-align:center;border-radius:16px;background:var(--surf);border:1px solid var(--bdr);transition:border-color .15s}
+.ex-card.done{background:var(--done-bg);border-color:var(--done-bdr)}
+.ex-card.current{border-color:var(--acc);background:var(--acc-dim)}
+.ex-name{font-size:11px;font-weight:700;line-height:1.3}
+.ex-card.done .ex-name{color:var(--done)}
+.ex-card.current .ex-name{color:var(--acc)}
+.ex-meta{font-size:10px;color:var(--mut)}
+.ex-card.done .ex-meta{color:var(--done);opacity:.7}
+
+/* Image/anim container */
+.img-wrap{width:72px;height:80px;position:relative;display:flex;align-items:center;justify-content:center}
+.ex-img{width:100%;height:100%;object-fit:contain;border-radius:6px}
+.ex-svg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+
+/* Progress */
+.pbar-wrap{padding:2px 12px 0;flex-shrink:0}
+.pbar{height:3px;background:var(--bdr);border-radius:2px;overflow:hidden}
+.pfill{height:100%;background:var(--acc);border-radius:2px;transition:width .4s}
+.pcount{font-size:10px;color:var(--mut);text-align:right;margin-top:3px;padding-bottom:4px}
+
+/* Log screen */
+.log-hero{background:var(--surf);border-bottom:1px solid var(--bdr);padding:14px;display:flex;gap:14px;align-items:center;flex-shrink:0}
+.log-hero .img-wrap{width:80px;height:90px}
+.lh-last{font-size:11px;color:var(--mut)}
+.lh-val{font-size:16px;font-weight:800;margin:3px 0}
+.lh-suggest{font-size:12px;color:var(--acc);font-weight:700}
+.log-body{padding:14px;overflow-y:auto;flex:1}
+
+/* Sets chips */
+.sets-row{display:flex;gap:6px;margin-bottom:12px}
+.set-chip{flex:1;background:var(--surf2);border:1px solid var(--bdr);border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer}
+.set-chip.done{border-color:var(--done-bdr);background:var(--done-bg)}
+.set-chip.now{border-color:var(--acc);background:var(--acc-dim)}
+.sc-lbl{font-size:10px;color:var(--mut)}
+.sc-val{font-size:12px;font-weight:800;margin-top:2px}
+.set-chip.done .sc-val{color:var(--done)}
+.set-chip.now .sc-val{color:var(--acc)}
+
+/* Inputs */
+.inp-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.inp-group label{font-size:10px;color:var(--mut);display:block;margin-bottom:4px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.inp-group input{width:100%;background:var(--surf2);border:1px solid var(--bdr);border-radius:12px;color:var(--txt);font-size:28px;font-weight:800;text-align:center;padding:12px 8px;outline:none;-webkit-appearance:none}
+.inp-group input:focus{border-color:var(--acc)}
+
+/* Buttons */
+.btn{width:100%;border:none;border-radius:14px;font-size:16px;font-weight:900;padding:16px;cursor:pointer;letter-spacing:.2px}
+.btn-acc{background:var(--acc);color:#0B1120}
+.btn-ghost{background:var(--surf2);color:var(--mut);border:1px solid var(--bdr)}
+.btn-success{background:transparent;color:var(--done);border:1px solid var(--done-bdr)}
+
+/* Timer */
+.timer-box{background:var(--surf);border:1px solid var(--bdr);border-radius:14px;padding:12px 16px;margin-top:12px;display:flex;justify-content:space-between;align-items:center}
+.t-lbl{font-size:11px;color:var(--mut)}
+.t-sub{font-size:10px;color:var(--mut);margin-top:2px}
+.t-val{font-size:32px;font-weight:900;letter-spacing:-1px;color:var(--acc);transition:color .3s}
+.t-val.warn{color:var(--warn)}
+.t-val.over{color:var(--danger)}
+
+/* Summary */
+.sum-stat{margin-bottom:10px}
+.sum-stat .ss-lbl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;font-weight:800;margin-bottom:4px}
+.sum-stat .ss-val{font-size:30px;font-weight:900;letter-spacing:-1px}
+.sum-stat .ss-sub{font-size:12px;color:var(--done);font-weight:700;margin-top:3px}
+.sec-lbl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1.5px;font-weight:800;margin:16px 0 8px}
+.nw-row{background:var(--surf);border:1px solid var(--bdr);border-radius:12px;padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.nw-name{font-size:12px;font-weight:700}
+.nw-was{font-size:10px;color:var(--mut);margin-top:2px}
+.nw-next{font-size:14px;font-weight:900}
+.nw-up{color:var(--acc)}
+.nw-hold{color:var(--mut)}
+.nw-drop{color:var(--danger)}
+
+/* Nav */
+.nav{display:flex;border-top:1px solid var(--bdr);background:var(--bg);flex-shrink:0;padding-bottom:env(safe-area-inset-bottom,0)}
+.nav-item{flex:1;padding:10px 0 8px;text-align:center;font-size:10px;color:var(--mut);cursor:pointer;font-weight:700}
+.nav-item.on{color:var(--acc)}
+.nav-icon{font-size:20px;display:block;margin-bottom:2px}
+
+/* Animations */
+@keyframes push{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes pull-d{0%,100%{transform:translateY(-7px)}50%{transform:translateY(5px)}}
+@keyframes curl{0%,100%{transform:rotate(0deg)}50%{transform:rotate(-55deg)}}
+@keyframes fly{0%,100%{transform:scaleX(1)}50%{transform:scaleX(0.6)}}
+@keyframes squat{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
+@keyframes ext{0%,100%{transform:rotate(20deg)}50%{transform:rotate(-10deg)}}
+@keyframes row{0%,100%{transform:translateX(6px)}50%{transform:translateX(-3px)}}
+
+.anim-push{animation:push 1.4s ease-in-out infinite}
+.anim-pull{animation:pull-d 1.4s ease-in-out infinite}
+.anim-curl{animation:curl 1.4s ease-in-out infinite;transform-origin:bottom center}
+.anim-fly{animation:fly 1.4s ease-in-out infinite;transform-origin:center}
+.anim-squat{animation:squat 1.4s ease-in-out infinite}
+.anim-ext{animation:ext 1.4s ease-in-out infinite;transform-origin:top center}
+.anim-row{animation:row 1.4s ease-in-out infinite}
+
+/* Toast */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--acc);color:#0B1120;padding:10px 20px;border-radius:30px;font-size:13px;font-weight:800;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<div class="screen on" id="s-home">
+  <div class="hdr">
+    <div>
+      <h1>GymLog</h1>
+      <div style="font-size:11px;color:var(--mut);margin-top:1px" id="home-date"></div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:10px;color:var(--mut)" id="home-week"></div>
+      <div style="font-size:14px;font-weight:800;color:var(--acc)" id="home-streak"></div>
+    </div>
+  </div>
+  <div class="scroll">
+    <div style="padding:14px 14px 6px">
+      <div class="streak-wrap" style="padding:0 0 12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:11px;color:var(--mut);font-weight:700">THIS WEEK</span>
+          <span style="font-size:11px;color:var(--acc);font-weight:800" id="week-count"></span>
+        </div>
+        <div class="streak-bar" id="streak-bar"></div>
+      </div>
+    </div>
+    <div class="day-grid" id="day-grid"></div>
+    <div style="padding:0 14px 20px" id="home-nudge"></div>
+  </div>
+  <div class="nav">
+    <div class="nav-item on"><span class="nav-icon">🏋️</span>Train</div>
+    <div class="nav-item" onclick="showHistory()"><span class="nav-icon">📈</span>History</div>
+    <div class="nav-item" onclick="exportData()"><span class="nav-icon">📁</span>Export</div>
+  </div>
+</div>
+
+<!-- EXERCISE GRID -->
+<div class="screen" id="s-exercises">
+  <div class="hdr">
+    <div>
+      <div class="back" onclick="go('s-home')">← Days</div>
+      <h1 id="ex-day-title"></h1>
+    </div>
+    <div style="font-size:12px;color:var(--mut)" id="ex-progress-label"></div>
+  </div>
+  <div class="pbar-wrap">
+    <div class="pbar"><div class="pfill" id="ex-pbar" style="width:0%"></div></div>
+    <div class="pcount">Tap any free machine to start</div>
+  </div>
+  <div class="scroll">
+    <div class="ex-grid" id="ex-grid"></div>
+    <div style="padding:10px 12px 16px">
+      <button class="btn btn-ghost" id="finish-btn" onclick="finishSession()" disabled>Finish &amp; Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOG SET -->
+<div class="screen" id="s-log">
+  <div class="hdr">
+    <div>
+      <div class="back" onclick="go('s-exercises')">← Exercises</div>
+      <h1 id="log-ex-name"></h1>
+    </div>
+  </div>
+  <div class="log-hero">
+    <div class="img-wrap" id="log-img-wrap"></div>
+    <div>
+      <div class="lh-last">Last session</div>
+      <div class="lh-val" id="log-last-val">—</div>
+      <div class="lh-suggest" id="log-suggest"></div>
+    </div>
+  </div>
+  <div class="log-body">
+    <div class="sets-row" id="sets-row"></div>
+    <div class="inp-row">
+      <div class="inp-group">
+        <label>Weight (kg)</label>
+        <input type="number" id="inp-kg" inputmode="decimal" step="0.5" value="10">
+      </div>
+      <div class="inp-group">
+        <label>Reps</label>
+        <input type="number" id="inp-reps" inputmode="numeric" value="12">
+      </div>
+    </div>
+    <button class="btn btn-acc" id="log-btn" onclick="logSet()">Log Set</button>
+    <div class="timer-box">
+      <div>
+        <div class="t-lbl">Rest timer</div>
+        <div class="t-sub">90s = optimal · goes orange at 2min</div>
+      </div>
+      <div class="t-val" id="timer">0:00</div>
+    </div>
+  </div>
+</div>
+
+<!-- SUMMARY -->
+<div class="screen" id="s-summary">
+  <div class="hdr">
+    <div>
+      <div class="back" onclick="go('s-home')">← Home</div>
+      <h1>Session done 🔥</h1>
+    </div>
+  </div>
+  <div class="scroll">
+    <div style="padding:14px">
+      <div class="sum-stat card" style="margin-bottom:10px">
+        <div class="ss-lbl">Total volume</div>
+        <div class="ss-val" id="sum-volume"></div>
+        <div class="ss-sub" id="sum-vol-diff"></div>
+      </div>
+      <div class="sec-lbl">Next session — suggested weights</div>
+      <div id="sum-suggestions"></div>
+      <button class="btn btn-acc" style="margin-top:16px" onclick="exportData()">Save to Files</button>
+      <button class="btn btn-ghost" style="margin-top:8px" onclick="go('s-home')">Back to Home</button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="screen" id="s-history">
+  <div class="hdr">
+    <div>
+      <div class="back" onclick="go('s-home')">← Home</div>
+      <h1>History</h1>
+    </div>
+  </div>
+  <div class="scroll">
+    <div style="padding:14px" id="history-content"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── EXERCISE DATA ──────────────────────────────────────────────────────────
+const DAYS = [
+  { id:'d1', name:'Chest & Triceps', short:'Chest',
+    exercises:[
+      {id:'bench',      name:'Bench Press',         edb:'barbell bench press',        anim:'push',  muscles:'Chest',
+       last:[{kg:10,r:8},{kg:10,r:7},{kg:10,r:7}]},
+      {id:'incline',    name:'Incline Bench Press',  edb:'barbell incline bench press', anim:'push',  muscles:'Upper chest',
+       last:[{kg:12,r:12},{kg:12,r:12},{kg:12,r:12}]},
+      {id:'chestfly',   name:'Chest Fly',            edb:'dumbbell fly',                anim:'fly',   muscles:'Chest',
+       last:[{kg:45,r:12},{kg:45,r:12},{kg:52,r:11}]},
+      {id:'tripush',    name:'Tricep Pushdown',      edb:'cable triceps pushdown',      anim:'push',  muscles:'Triceps',
+       last:[{kg:23.6,r:12},{kg:23.6,r:10},{kg:23.6,r:11}]},
+      {id:'ovhext',     name:'Overhead Extension',   edb:'dumbbell overhead triceps extension', anim:'ext', muscles:'Triceps',
+       last:[{kg:12,r:12},{kg:12,r:11},{kg:12,r:12}]},
+      {id:'skull',      name:'Skull Crushers',       edb:'ez bar skullcrusher',         anim:'ext',   muscles:'Triceps',
+       last:[{kg:15,r:12},{kg:15,r:12},{kg:15,r:12}]},
+    ]},
+  { id:'d2', name:'Back & Biceps', short:'Back',
+    exercises:[
+      {id:'latpull',    name:'Lat Pulldown',         edb:'cable lat pulldown',          anim:'pull',  muscles:'Lats',
+       last:[{kg:45,r:12},{kg:45,r:12},{kg:45,r:12}]},
+      {id:'cablerow',   name:'Cable Row',            edb:'cable seated row',            anim:'row',   muscles:'Back',
+       last:[{kg:52,r:12},{kg:52,r:8},{kg:52,r:6}]},
+      {id:'highrow',    name:'Incline High Row',     edb:'dumbbell incline row',        anim:'row',   muscles:'Upper back',
+       last:[{kg:10,r:12},{kg:10,r:12},{kg:12,r:12}]},
+      {id:'bbcurl',     name:'Barbell Curl',         edb:'barbell curl',                anim:'curl',  muscles:'Biceps',
+       last:[{kg:20,r:12},{kg:20,r:12},{kg:20,r:12}]},
+      {id:'inchammer',  name:'Incline Hammer Curl',  edb:'dumbbell incline hammer curl',anim:'curl',  muscles:'Biceps',
+       last:[{kg:12,r:10},{kg:12,r:10},{kg:12,r:9}]},
+      {id:'preacher',   name:'Preacher Curl',        edb:'ez barbell preacher curl',    anim:'curl',  muscles:'Biceps',
+       last:[{kg:7.5,r:9},{kg:7.5,r:5},{kg:7.5,r:7}]},
+    ]},
+  { id:'d3', name:'Legs', short:'Legs',
+    exercises:[
+      {id:'hacksquat',  name:'Hack Squat',           edb:'barbell hack squat',          anim:'squat', muscles:'Quads',
+       last:[{kg:25,r:12},{kg:25,r:12},{kg:25,r:12}]},
+      {id:'legext',     name:'Leg Extension',        edb:'lever leg extension',         anim:'ext',   muscles:'Quads',
+       last:[{kg:59,r:12},{kg:59,r:12},{kg:59,r:12}]},
+      {id:'adductor',   name:'Adductor Machine',     edb:'lever seated hip abduction',  anim:'fly',   muscles:'Inner thigh',
+       last:[{kg:52,r:12},{kg:52,r:12},{kg:52,r:12}]},
+      {id:'lyingcurl',  name:'Lying Leg Curl',       edb:'lever lying leg curl',        anim:'curl',  muscles:'Hamstrings',
+       last:[{kg:36,r:12},{kg:36,r:12},{kg:36,r:12}]},
+      {id:'seatedcurl', name:'Seated Leg Curl',      edb:'lever seated leg curl',       anim:'curl',  muscles:'Hamstrings',
+       last:[{kg:39,r:12},{kg:39,r:10},{kg:39,r:10}]},
+      {id:'legpress',   name:'Leg Press',            edb:'lever leg press',             anim:'push',  muscles:'Quads, Glutes',
+       last:[{kg:66,r:12},{kg:66,r:12},{kg:66,r:12}]},
+    ]},
+  { id:'d4', name:'Shoulders', short:'Shoulders',
+    exercises:[
+      {id:'revfly',     name:'Reverse Fly',          edb:'cable reverse fly',           anim:'fly',   muscles:'Rear delts',
+       last:[{kg:52,r:12},{kg:52,r:12},{kg:52,r:9}]},
+      {id:'frontraise', name:'Front Raise',          edb:'dumbbell front raise',        anim:'push',  muscles:'Front delts',
+       last:[{kg:12,r:10},{kg:12,r:8},{kg:12,r:8}]},
+      {id:'latraise',   name:'Lateral Raise',        edb:'dumbbell lateral raise',      anim:'fly',   muscles:'Side delts',
+       last:[{kg:12,r:8},{kg:12,r:8},{kg:12,r:8}]},
+      {id:'shoulderpress',name:'Shoulder Press',     edb:'dumbbell shoulder press',     anim:'push',  muscles:'Shoulders',
+       last:[{kg:12,r:12},{kg:12,r:10},{kg:12,r:10}]},
+    ]},
+  { id:'d5', name:'Arms', short:'Arms',
+    exercises:[
+      {id:'tripush2',   name:'Tricep Pushdown',      edb:'cable triceps pushdown',      anim:'push',  muscles:'Triceps',
+       last:[{kg:23.8,r:12},{kg:23.8,r:12},{kg:23.8,r:12}]},
+      {id:'ovhext2',    name:'Overhead Extension',   edb:'dumbbell overhead triceps extension', anim:'ext', muscles:'Triceps',
+       last:[{kg:10,r:12},{kg:10,r:12},{kg:10,r:12}]},
+      {id:'strpush',    name:'Straight Bar Pushdown',edb:'cable pushdown',              anim:'push',  muscles:'Triceps',
+       last:[{kg:23.8,r:12},{kg:23.8,r:9},{kg:23.8,r:8}]},
+      {id:'bbcurl2',    name:'Barbell Curl',         edb:'barbell curl',                anim:'curl',  muscles:'Biceps',
+       last:[{kg:10,r:10},{kg:10,r:8},{kg:10,r:10}]},
+      {id:'hammer',     name:'Hammer Curl',          edb:'dumbbell hammer curl',        anim:'curl',  muscles:'Biceps',
+       last:[{kg:10,r:8},{kg:10,r:8},{kg:10,r:9}]},
+      {id:'dbpreacher', name:'DB Preacher Curl',     edb:'dumbbell preacher curl',      anim:'curl',  muscles:'Biceps',
+       last:[{kg:10,r:12},{kg:10,r:12},{kg:10,r:11}]},
+    ]},
+];
+
+// ── SVG ANIMATIONS ─────────────────────────────────────────────────────────
+function makeSVG(type, colour='#C6F135'){
+  const c = colour, b='#253347', sk='#3A4A5A';
+  const head = `<circle fill="${b}" cx="26" cy="8" r="7"/>`;
+  const torso = `<rect fill="${b}" x="14" y="17" width="24" height="28" rx="5"/>`;
+  const legs = `<line stroke="${sk}" stroke-width="2" x1="20" y1="45" x2="18" y2="68"/><line stroke="${sk}" stroke-width="2" x1="32" y1="45" x2="34" y2="68"/>`;
+  const arms_basic = `<line stroke="${sk}" stroke-width="2" x1="14" y1="22" x2="4" y2="36"/><line stroke="${sk}" stroke-width="2" x1="38" y1="22" x2="48" y2="36"/>`;
+  switch(type){
+    case 'push': return `<svg width="60" height="78" viewBox="0 0 52 70">${head}${torso}${legs}<g class="anim-push"><line stroke="${c}" stroke-width="3" x1="14" y1="22" x2="2" y2="28"/><line stroke="${c}" stroke-width="3" x1="38" y1="22" x2="50" y2="28"/><circle fill="${c}" cx="2" cy="28" r="4"/><circle fill="${c}" cx="50" cy="28" r="4"/></g></svg>`;
+    case 'pull': return `<svg width="60" height="78" viewBox="0 0 52 70">${head}${torso}${legs}<g class="anim-pull"><line stroke="${c}" stroke-width="3" x1="14" y1="22" x2="2" y2="14"/><line stroke="${c}" stroke-width="3" x1="38" y1="22" x2="50" y2="14"/><line stroke="${c}" stroke-width="4" x1="2" y1="14" x2="50" y2="14"/></g></svg>`;
+    case 'curl': return `<svg width="60" height="78" viewBox="0 0 52 70">${head}${torso}${legs}<g class="anim-curl"><line stroke="${c}" stroke-width="3" x1="14" y1="30" x2="4" y2="48"/><circle fill="${c}" cx="4" cy="49" r="4"/></g>${arms_basic}</svg>`;
+    case 'fly':  return `<svg width="60" height="78" viewBox="0 0 52 70">${head}${torso}${legs}<g class="anim-fly"><line stroke="${c}" stroke-width="3" x1="2" y1="24" x2="14" y2="22"/><line stroke="${c}" stroke-width="3" x1="50" y1="24" x2="38" y2="22"/><circle fill="${c}" cx="2" cy="24" r="4"/><circle fill="${c}" cx="50" cy="24" r="4"/></g></svg>`;
+    case 'squat':return `<svg width="60" height="78" viewBox="0 0 52 70">${head}<g class="anim-squat">${torso}${arms_basic}</g><rect fill="${b}" x="14" y="45" width="10" height="23" rx="4"/><rect fill="${b}" x="28" y="45" width="10" height="23" rx="4"/></svg>`;
+    case 'ext':  return `<svg width="60" height="78" viewBox="0 0 52 70">${head}${torso}${legs}<g class="anim-ext"><line stroke="${c}" stroke-width="3" x1="14" y1="22" x2="2" y2="40"/><circle fill="${c}" cx="2" cy="41" r="4"/></g></svg>`;
+    case 'row':  return `<svg width="60" height="78" viewBox="0 0 52 70">${head}${torso}${legs}<g class="anim-row"><line stroke="${c}" stroke-width="3" x1="14" y1="28" x2="0" y2="28"/><circle fill="${c}" cx="0" cy="28" r="4"/><line stroke="${c}" stroke-width="3" x1="38" y1="28" x2="52" y2="28"/></g></svg>`;
+    default: return `<svg width="60" height="78" viewBox="0 0 52 70">${head}${torso}${legs}${arms_basic}</svg>`;
+  }
+}
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let state = {
+  currentDay: null,
+  currentExId: null,
+  session: {},        // { exId: [{kg,r},...] }
+  sessionDay: null,
+  timerInterval: null,
+  timerSecs: 0,
+  history: JSON.parse(localStorage.getItem('gl_history')||'[]'),
+  lastSessions: JSON.parse(localStorage.getItem('gl_last')||'{}'),
+  imgCache: JSON.parse(localStorage.getItem('gl_imgcache')||'{}'), // keyed by edb_+exId
+};
+
+// Merge pre-loaded last sessions with any saved ones
+DAYS.forEach(d => d.exercises.forEach(e => {
+  if(!state.lastSessions[e.id]) state.lastSessions[e.id] = e.last;
+}));
+
+// ── IMAGE LOADING ──────────────────────────────────────────────────────────
+const RAPIDAPI_KEY = '4701c25bb0msh707aee4e081629dp1939cajsn60a02a3bfef8';
+
+async function loadExImg(ex, container){
+  container.innerHTML = '';
+  // SVG fallback always ready
+  const svgEl = document.createElement('div');
+  svgEl.className = 'ex-svg';
+  svgEl.innerHTML = makeSVG(ex.anim);
+  container.appendChild(svgEl);
+
+  if(!ex.edb) return;
+
+  // Check cache first
+  const cacheKey = 'edb_' + ex.id;
+  let gifUrl = state.imgCache[cacheKey];
+
+  if(!gifUrl){
+    try{
+      const ctrl = new AbortController();
+      const t = setTimeout(()=>ctrl.abort(), 5000);
+      const res = await fetch(
+        `https://exercisedb.p.rapidapi.com/exercises/name/${encodeURIComponent(ex.edb)}?limit=1`,
+        { signal: ctrl.signal,
+          headers: {
+            'x-rapidapi-host': 'exercisedb.p.rapidapi.com',
+            'x-rapidapi-key': RAPIDAPI_KEY
+          }
+        }
+      );
+      clearTimeout(t);
+      const data = await res.json();
+      if(Array.isArray(data) && data.length > 0 && data[0].gifUrl){
+        gifUrl = data[0].gifUrl;
+        state.imgCache[cacheKey] = gifUrl;
+        localStorage.setItem('gl_imgcache', JSON.stringify(state.imgCache));
+      }
+    }catch(e){ return; }
+  }
+
+  if(gifUrl){
+    const img = document.createElement('img');
+    img.className = 'ex-img';
+    img.src = gifUrl;
+    img.onload = () => { svgEl.style.display='none'; container.appendChild(img); };
+    img.onerror = () => {};
+  }
+}
+
+// ── SUGGESTION LOGIC ───────────────────────────────────────────────────────
+function suggest(sets){
+  if(!sets || sets.length === 0) return {txt:'—', cls:'nw-hold'};
+  const allHit = sets.every(s => s.r >= 12);
+  const dropping = sets[sets.length-1].r < sets[0].r - 2;
+  const kg = sets[0].kg;
+  if(allHit){
+    const bump = kg < 10 ? 1 : kg < 20 ? 2.5 : 2.5;
+    return {txt:`Try ${kg+bump}kg ↑`, cls:'nw-up'};
+  }
+  if(dropping) return {txt:`Hold ${kg}kg`, cls:'nw-hold'};
+  return {txt:`Hold ${kg}kg`, cls:'nw-hold'};
+}
+
+function fmtSets(sets){
+  if(!sets||!sets.length) return '—';
+  return sets[0].kg + 'kg × ' + sets.map(s=>s.r).join('/');
+}
+
+// ── HOME SCREEN ────────────────────────────────────────────────────────────
+function renderHome(){
+  const now = new Date();
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('home-date').textContent = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]}`;
+  document.getElementById('home-streak').textContent = `${state.history.length} sessions 🔥`;
+  document.getElementById('home-week').textContent = 'Week ' + (Math.floor(state.history.length/5)+1);
+
+  // Week dots (Mon-Fri)
+  const weekDays = ['Mon','Tue','Wed','Thu','Fri'];
+  const todayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  const bar = document.getElementById('streak-bar');
+  bar.innerHTML = weekDays.map((d,i) => {
+    const cls = i < todayIdx ? 'done' : i === todayIdx ? 'partial' : '';
+    return `<div class="streak-seg ${cls}" title="${d}"></div>`;
+  }).join('');
+  document.getElementById('week-count').textContent = Math.min(todayIdx,5) + '/5 days';
+
+  // Day grid
+  const grid = document.getElementById('day-grid');
+  const dayNames = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  grid.innerHTML = DAYS.map((d,i) => {
+    const isToday = i === dayOfWeek;
+    const isDone = i < dayOfWeek;
+    const isRest = i >= 5;
+    return `<div class="card day-card ${isToday?'today':''} ${isRest?'rest-tag':''}" onclick="${isRest?'':isToday?`startDay('${d.id}')`:isDone?`reviewDay('${d.id}')`:''}"}>
+      ${isDone?'<div class="done-dot"></div>':''}
+      <div class="dlabel">${isToday?'Today':dayNames[i]}</div>
+      <div class="dname">${d.name}</div>
+      <div class="dmeta">${isRest?'Rest day':isDone?'Done':''+d.exercises.length+' exercises'}</div>
+    </div>`;
+  }).join('');
+
+  // Nudge card
+  const nudge = document.getElementById('home-nudge');
+  if(state.history.length > 0){
+    const last = state.history[state.history.length-1];
+    const dayDef = DAYS.find(d=>d.id===last.dayId);
+    if(dayDef){
+      const highlights = Object.entries(last.sets).slice(0,2).map(([eid,sets])=>{
+        const ex = dayDef.exercises.find(e=>e.id===eid);
+        const s = suggest(sets);
+        return ex ? `<b>${ex.name}</b>: ${s.txt}` : '';
+      }).filter(Boolean).join(' · ');
+      nudge.innerHTML = `<div class="card" style="margin-top:0"><div style="font-size:10px;color:var(--mut);margin-bottom:4px;text-transform:uppercase;font-weight:800;letter-spacing:1px">Last session nudge</div><div style="font-size:12px;line-height:1.6">${highlights}</div></div>`;
+    }
+  }
+}
+
+function startDay(dayId){
+  state.currentDay = DAYS.find(d=>d.id===dayId);
+  state.session = {};
+  state.sessionDay = dayId;
+  renderExercises();
+  go('s-exercises');
+}
+
+function reviewDay(dayId){
+  startDay(dayId);
+}
+
+// ── EXERCISE GRID ──────────────────────────────────────────────────────────
+function renderExercises(){
+  const day = state.currentDay;
+  document.getElementById('ex-day-title').textContent = day.name;
+  const done = Object.keys(state.session).length;
+  const total = day.exercises.length;
+  document.getElementById('ex-progress-label').textContent = done + ' / ' + total;
+  document.getElementById('ex-pbar').style.width = (done/total*100)+'%';
+  const finBtn = document.getElementById('finish-btn');
+  finBtn.disabled = done < total;
+  finBtn.className = 'btn ' + (done>=total?'btn-success':'btn-ghost');
+  finBtn.textContent = done>=total ? 'Finish & Save ✓' : `Finish & Save (${total-done} left)`;
+
+  const grid = document.getElementById('ex-grid');
+  grid.innerHTML = '';
+
+  day.exercises.forEach(ex => {
+    const isDone = !!state.session[ex.id];
+    const isCurrent = state.currentExId === ex.id;
+    const card = document.createElement('div');
+    card.className = `ex-card ${isDone?'done':isCurrent?'current':''}`;
+    card.onclick = () => openExercise(ex.id);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'img-wrap';
+    card.appendChild(wrap);
+
+    const namEl = document.createElement('div');
+    namEl.className = 'ex-name';
+    namEl.textContent = ex.name;
+    card.appendChild(namEl);
+
+    const lastSets = state.lastSessions[ex.id] || ex.last;
+    const metaEl = document.createElement('div');
+    metaEl.className = 'ex-meta';
+    if(isDone){
+      const thisSets = state.session[ex.id];
+      metaEl.textContent = '✓ ' + fmtSets(thisSets);
+    } else {
+      metaEl.textContent = 'Last: ' + fmtSets(lastSets);
+    }
+    card.appendChild(metaEl);
+    grid.appendChild(card);
+
+    loadExImg(ex, wrap);
+  });
+}
+
+// ── SET LOGGING ─────────────────────────────────────────────────────────────
+function openExercise(exId){
+  const day = state.currentDay;
+  const ex = day.exercises.find(e=>e.id===exId);
+  state.currentExId = exId;
+
+  document.getElementById('log-ex-name').textContent = ex.name;
+
+  const lastSets = state.lastSessions[ex.id] || ex.last;
+  document.getElementById('log-last-val').textContent = fmtSets(lastSets);
+  const sg = suggest(lastSets);
+  const sugEl = document.getElementById('log-suggest');
+  sugEl.textContent = sg.txt;
+  sugEl.className = 'lh-suggest ' + (sg.cls==='nw-up' ? '' : '');
+
+  // Set kg input to last weight
+  if(lastSets && lastSets.length > 0){
+    document.getElementById('inp-kg').value = lastSets[0].kg;
+  }
+
+  // Hero image
+  const imgWrap = document.getElementById('log-img-wrap');
+  loadExImg(ex, imgWrap);
+
+  // Sets so far
+  const existingSets = state.session[exId] || [];
+  renderSetsRow(existingSets);
+
+  // Update log button
+  updateLogBtn(existingSets);
+
+  // Start timer
+  startTimer();
+
+  go('s-log');
+}
+
+function renderSetsRow(sets){
+  const row = document.getElementById('sets-row');
+  const targetSets = 3;
+  const currentSetIdx = sets.length;
+  row.innerHTML = Array.from({length:targetSets},(_,i) => {
+    const isDone = i < currentSetIdx;
+    const isNow = i === currentSetIdx;
+    const cls = isDone?'done':isNow?'now':'';
+    const val = isDone ? `${sets[i].kg}×${sets[i].r}` : isNow ? 'Now' : '—';
+    return `<div class="set-chip ${cls}"><div class="sc-lbl">Set ${i+1}</div><div class="sc-val">${val}</div></div>`;
+  }).join('');
+}
+
+function updateLogBtn(sets){
+  const btn = document.getElementById('log-btn');
+  const next = sets.length + 1;
+  if(sets.length >= 3){
+    btn.textContent = 'Done ✓';
+    btn.onclick = () => { go('s-exercises'); renderExercises(); };
+    btn.className = 'btn btn-success';
+  } else {
+    btn.textContent = `Log Set ${next}`;
+    btn.onclick = logSet;
+    btn.className = 'btn btn-acc';
+  }
+}
+
+function logSet(){
+  const exId = state.currentExId;
+  const kg = parseFloat(document.getElementById('inp-kg').value)||0;
+  const reps = parseInt(document.getElementById('inp-reps').value)||0;
+  if(!kg || !reps){ showToast('Enter weight and reps'); return; }
+
+  if(!state.session[exId]) state.session[exId] = [];
+  state.session[exId].push({kg,r:reps});
+
+  const sets = state.session[exId];
+  renderSetsRow(sets);
+  updateLogBtn(sets);
+
+  // Reset timer
+  resetTimer();
+
+  showToast(`Set ${sets.length} logged ✓`);
+}
+
+// ── TIMER ──────────────────────────────────────────────────────────────────
+function startTimer(){
+  clearInterval(state.timerInterval);
+  state.timerSecs = 0;
+  updateTimerDisplay();
+  state.timerInterval = setInterval(()=>{
+    state.timerSecs++;
+    updateTimerDisplay();
+  },1000);
+}
+
+function resetTimer(){
+  state.timerSecs = 0;
+  updateTimerDisplay();
+}
+
+function updateTimerDisplay(){
+  const s = state.timerSecs;
+  const m = Math.floor(s/60), sec = s%60;
+  const el = document.getElementById('timer');
+  if(el){
+    el.textContent = m+':'+(sec<10?'0':'')+sec;
+    el.className = 't-val' + (s>120?' over':s>90?' warn':'');
+  }
+}
+
+// ── FINISH SESSION ──────────────────────────────────────────────────────────
+function finishSession(){
+  clearInterval(state.timerInterval);
+
+  const day = state.currentDay;
+  const record = {
+    date: new Date().toISOString(),
+    dayId: state.sessionDay,
+    dayName: day.name,
+    sets: state.session,
+  };
+  state.history.push(record);
+  localStorage.setItem('gl_history', JSON.stringify(state.history));
+
+  // Update last sessions
+  day.exercises.forEach(ex => {
+    if(state.session[ex.id]){
+      state.lastSessions[ex.id] = state.session[ex.id];
+    }
+  });
+  localStorage.setItem('gl_last', JSON.stringify(state.lastSessions));
+
+  renderSummary(record, day);
+  go('s-summary');
+}
+
+function renderSummary(record, day){
+  // Volume
+  let totalVol = 0;
+  Object.values(record.sets).forEach(sets => sets.forEach(s => totalVol += s.kg * s.r));
+  document.getElementById('sum-volume').textContent = totalVol.toLocaleString() + ' kg';
+
+  // Compare to previous session of same day
+  const prev = state.history.slice(0,-1).reverse().find(h=>h.dayId===record.dayId);
+  if(prev){
+    let prevVol = 0;
+    Object.values(prev.sets).forEach(sets => sets.forEach(s => prevVol += s.kg * s.r));
+    const diff = totalVol - prevVol;
+    const diffEl = document.getElementById('sum-vol-diff');
+    diffEl.textContent = (diff>=0?'+':'')+diff+'kg vs last '+day.name+' session';
+    diffEl.style.color = diff>=0?'var(--done)':'var(--danger)';
+  } else {
+    document.getElementById('sum-vol-diff').textContent = 'First '+day.name+' session logged!';
+  }
+
+  // Suggestions
+  const sugs = document.getElementById('sum-suggestions');
+  sugs.innerHTML = day.exercises.map(ex => {
+    const sets = record.sets[ex.id];
+    if(!sets) return '';
+    const sg = suggest(sets);
+    return `<div class="nw-row"><div><div class="nw-name">${ex.name}</div><div class="nw-was">${fmtSets(sets)}</div></div><div class="nw-next ${sg.cls}">${sg.txt}</div></div>`;
+  }).join('');
+}
+
+// ── HISTORY ────────────────────────────────────────────────────────────────
+function showHistory(){
+  const el = document.getElementById('history-content');
+  if(state.history.length === 0){
+    el.innerHTML = '<div style="color:var(--mut);text-align:center;padding:40px 0">No sessions logged yet</div>';
+  } else {
+    el.innerHTML = [...state.history].reverse().map(h => {
+      const d = new Date(h.date);
+      const exCount = Object.keys(h.sets).length;
+      let vol = 0;
+      Object.values(h.sets).forEach(sets=>sets.forEach(s=>vol+=s.kg*s.r));
+      return `<div class="card" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <div style="font-weight:800">${h.dayName}</div>
+          <div style="font-size:11px;color:var(--mut)">${d.toLocaleDateString('en-GB')}</div>
+        </div>
+        <div style="font-size:12px;color:var(--mut);margin-top:4px">${exCount} exercises · ${vol.toLocaleString()}kg total volume</div>
+      </div>`;
+    }).join('');
+  }
+  go('s-history');
+}
+
+// ── EXPORT ─────────────────────────────────────────────────────────────────
+function exportData(){
+  const data = { exported: new Date().toISOString(), sessions: state.history };
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'gymlog_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Saved to Files ✓');
+}
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  if(id==='s-home') renderHome();
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+renderHome();
+</script>
+</body>
+</html>
